@@ -4,10 +4,11 @@ import { z } from "zod";
 import { getRegularBookingService } from "@calcom/features/bookings/di/RegularBookingService.container";
 import prisma from "@calcom/prisma";
 import { CreationSource } from "@calcom/prisma/enums";
+import { cancelRegisteredBooking } from "./cancel-registered-booking";
 
 export const runtime = "nodejs";
 const requestSchema = z.object({
-  action: z.enum(["create", "lookup"]),
+  action: z.enum(["create", "lookup", "cancel", "cancel_lookup"]),
   bookingId: z.string().uuid(),
   tenantId: z.number().int().positive(),
   stripeSession: z.string().regex(/^cs_[a-zA-Z0-9_]+$/),
@@ -64,6 +65,18 @@ export async function POST(req: Request) {
   if (!operation) return NextResponse.json({ status: "not_found" }, { status: 404 });
   if (operation.payloadHash !== payloadHash)
     return NextResponse.json({ error: "idempotency_conflict" }, { status: 409 });
+
+  if (action === "cancel" || action === "cancel_lookup") {
+    if (process.env.NOSKI_BOOKING_CANCELLATION_ENABLED !== "true")
+      return NextResponse.json({ error: "cancellation_disabled" }, { status: 503 });
+    const result = await cancelRegisteredBooking({
+      operationId: id, payloadHash, ownerId, eventTypeId,
+      startsAt: input.startsAt, endsAt: input.endsAt,
+      attendeeEmail: input.attendee.email, allowCancel: action === "cancel",
+    });
+    return NextResponse.json({ ...result, bookingId: input.bookingId },
+      { status: result.status === "canceled" ? 200 : 202 });
+  }
 
   if (created) {
     try {
