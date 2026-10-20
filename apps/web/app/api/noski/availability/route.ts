@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       timeZone: "Europe/Warsaw", isTeamEvent: false,
       _bypassCalendarBusyTimes: false, _silentCalendarFailures: false,
     } });
-    const slots = [...new Set(Object.values(result.slots).flat().map(slot => slot.time))]
+    const slots = Array.from(new Set(Object.values(result.slots).flat().map(slot => slot.time)))
       .filter(time => Number.isFinite(Date.parse(time)) && Date.parse(time) >= start &&
         Date.parse(time) < end && Date.parse(time) >= now + 86400000).sort();
     return reply({ startTime: input.data.startTime, endTime: input.data.endTime, slots });
