@@ -67,8 +67,9 @@ export async function POST(req: Request) {
 
   if (created) {
     try {
-      await getRegularBookingService().createBooking({
-        bookingData: {
+      // Cal validates event-specific responses dynamically in getBookingDataSchema.
+      // Keep them on the runtime object alongside the statically typed base fields.
+      const bookingData = {
           eventTypeId, eventTypeSlug: event.slug, user: event.owner.username,
           start: input.startsAt, end: input.endsAt, timeZone: "Europe/Warsaw", language: "pl",
           metadata: { noskiOperationId: id, noskiPayloadHash: payloadHash,
@@ -76,7 +77,9 @@ export async function POST(req: Request) {
           responses: { name: input.attendee.name, email: input.attendee.email,
             location: { value: "integrations:google:meet", optionValue: "" } },
           creationSource: CreationSource.WEBAPP,
-        },
+      };
+      await getRegularBookingService().createBooking({
+        bookingData,
         bookingMeta: { userId: ownerId, hostname: "konsultacje.noski-noski.pl" },
       });
     } catch {
