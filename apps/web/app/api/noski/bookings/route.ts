@@ -45,9 +45,9 @@ export async function POST(req: Request) {
   const payloadHash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
   const event = await prisma.eventType.findFirst({
     where: { id: eventTypeId, userId: ownerId },
-    select: { slug: true, length: true, user: { select: { username: true } } },
+    select: { slug: true, length: true, owner: { select: { username: true } } },
   });
-  if (!event?.user?.username || event.length !== 60)
+  if (!event?.owner?.username || event.length !== 60)
     return NextResponse.json({ error: "event_configuration" }, { status: 503 });
 
   // This committed insert is the right to create once. A lost response only permits lookup.
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     try {
       await getRegularBookingService().createBooking({
         bookingData: {
-          eventTypeId, eventTypeSlug: event.slug, user: event.user.username,
+          eventTypeId, eventTypeSlug: event.slug, user: event.owner.username,
           start: input.startsAt, end: input.endsAt, timeZone: "Europe/Warsaw", language: "pl",
           metadata: { noskiOperationId: id, noskiPayloadHash: payloadHash,
             noskiTenantId: String(input.tenantId), noskiStripeSession: input.stripeSession },
