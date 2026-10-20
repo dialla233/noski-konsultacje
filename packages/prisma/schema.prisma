@@ -2849,3 +2849,15 @@ model AttributeSyncFieldMapping {
   @@unique([integrationAttributeSyncId, attributeId])
   @@index([integrationAttributeSyncId])
 }
+
+
+// A failed or timed-out external call must never trigger another booking creation.
+model NoskiBookingOperation {
+  id          String   @id
+  payloadHash String
+  status      String   @default("creating")
+  bookingUid  String?  @unique
+  receipt     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
