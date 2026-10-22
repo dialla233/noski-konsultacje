@@ -8,6 +8,7 @@ import { cancelRegisteredBooking } from "./cancel-registered-booking";
 
 export const runtime = "nodejs";
 const requestSchema = z.object({
+  rescheduleUid: z.string().regex(/^[A-Za-z0-9_-]{10,100}$/).optional(),
   action: z.enum(["create", "lookup", "cancel", "cancel_lookup"]),
   bookingId: z.string().uuid(),
   tenantId: z.number().int().positive(),
@@ -82,7 +83,13 @@ export async function POST(req: Request) {
     try {
       // Cal validates event-specific responses dynamically in getBookingDataSchema.
       // Keep them on the runtime object alongside the statically typed base fields.
+      if(input.rescheduleUid){
+        const previous=await prisma.booking.findUnique({where:{uid:input.rescheduleUid},select:{status:true,startTime:true,userId:true,eventTypeId:true,metadata:true,attendees:{select:{email:true}}}});
+        const meta=z.object({noskiTenantId:z.string(),noskiStripeSession:z.string()}).safeParse(previous?.metadata);
+        if(!previous||previous.status!=="ACCEPTED"||previous.userId!==ownerId||previous.eventTypeId!==eventTypeId||previous.startTime.getTime()<Date.now()+86400000||!meta.success||meta.data.noskiTenantId!==String(input.tenantId)||meta.data.noskiStripeSession!==input.stripeSession||!previous.attendees.some(a=>a.email.toLowerCase()===input.attendee.email.toLowerCase()))throw Error("reschedule_not_allowed");
+      }
       const bookingData = {
+          ...(input.rescheduleUid ? {rescheduleUid:input.rescheduleUid,rescheduledBy:input.attendee.email} : {}),
           eventTypeId, eventTypeSlug: event.slug, user: event.owner.username,
           start: input.startsAt, end: input.endsAt, timeZone: "Europe/Warsaw", language: "pl",
           metadata: { noskiOperationId: id, noskiPayloadHash: payloadHash,
